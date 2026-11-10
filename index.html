@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant" translate="no">
+<head>
+<meta charset="utf-8">
+<!-- 頁面會顯示真實客戶名稱：禁止瀏覽器的「翻譯此頁」功能把內容送到雲端翻譯服務 -->
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 內容安全政策：禁止本頁對任何地方發出連線（fetch / XHR / WebSocket / 表單送出 / 外部資源）。 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>月結小幫手｜資料不出瀏覽器的 AI 月結交接包</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <p class="tag">POC 展示 ・ 全部為虛構測試資料</p>
+    <h1>月結小幫手</h1>
+    <p class="lead">把 ERP 匯出的「訂單明細」CSV 拖進來，在你自己的瀏覽器裡算出月結報表，再產生只有<strong>代號與比例</strong>的「AI 交接包」交給 AI 寫摘要。客戶名單、聯絡人、成交價<strong>不會離開這個分頁</strong>。</p>
+    <ol class="steps">
+      <li>上傳 ERP 匯出的 CSV</li>
+      <li>看月結報表</li>
+      <li>複製 AI 交接包給公司核准的 AI</li>
+      <li>把 AI 的回覆貼回來，代號自動換回客戶名稱</li>
+    </ol>
+  </div>
+</header>
+
+<div class="guide" id="guide">
+  <div class="wrap">
+    <ol class="stepper" id="stepper" aria-label="操作步驟"></ol>
+    <div class="coach" id="coach" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<main class="wrap">
+  <div id="banner" class="banner" role="alert" hidden></div>
+
+  <section class="card" id="sec-upload">
+    <h2><span class="n">1</span>上傳 ERP 匯出檔</h2>
+    <div id="drop" class="drop" tabindex="0">
+      <p><strong>把 CSV 檔拖到這裡</strong>，或按下方按鈕選擇檔案</p>
+      <label class="btn primary" for="file" id="pickBtn">選擇 CSV 檔</label>
+      <input id="file" type="file" accept=".csv,text/csv" hidden>
+      <p class="muted small">格式：UTF-8、20 欄「訂單明細」。支援西元與民國日期、全形數字、統編前導零。</p>
+    </div>
+    <p class="muted small">沒有檔案可以試？<a href="data/synthetic_erp.csv" download>下載範例假資料</a>（虛構資料，下載後再拖進來）。</p>
+    <details class="safe">
+      <summary>老闆最在意的：資料真的沒有出去嗎？怎麼自己檢查</summary>
+      <ul>
+        <li>本頁沒有後端，也沒有任何 AI 呼叫、分析追蹤或外部資源。頁面內建安全規則，禁止對外連線。</li>
+        <li>自己驗證：按 F12 開「Network（網路）」分頁，上傳檔案後應該<strong>沒有任何新的請求</strong>。也可以先斷網再操作，一樣能用。</li>
+        <li>資料只存在這個分頁的記憶體，不寫入瀏覽器儲存空間；關掉或重新整理分頁就消失。兩個分頁之間互不相通。</li>
+        <li>唯一的出口是你自己按「複製」的 AI 交接包，內容在畫面上看得到。</li>
+      </ul>
+    </details>
+  </section>
+
+  <div id="app" hidden>
+    <section class="card" id="sec-status">
+      <h2>資料檢查 <span id="issueBadge" class="pill"></span></h2>
+      <div id="status" class="kv"></div>
+      <div class="controls">
+        <label>結帳基準日 <input type="date" id="baseDate"></label>
+        <label>毛利下降門檻（百分點） <input type="number" id="dropPts" min="1" max="50" step="1" value="5"></label>
+        <button class="btn" id="reset">清除畫面上的資料</button>
+      </div>
+      <div id="fixMsg" class="fixmsg" role="status" aria-live="polite" hidden></div>
+      <div id="issues"></div>
+      <div id="fixlog"></div>
+    </section>
+
+    <section class="card" id="sec-report">
+      <h2><span class="n">2</span>月結報表 <span class="pill">真實名稱只在本機顯示</span> <span id="editedPill" class="pill" hidden></span></h2>
+      <div id="kpis" class="kpis"></div>
+
+      <h3>毛利異常的客戶</h3>
+      <div id="t-alerts" class="tablewrap"></div>
+
+      <h3>各客戶逐月毛利率與變化</h3>
+      <details open><summary>展開 / 收合</summary><div id="t-margin" class="tablewrap"></div></details>
+
+      <h3>逾期帳款</h3>
+      <div id="t-overdue" class="tablewrap"></div>
+
+      <h3>低於成本的訂單</h3>
+      <div id="t-below" class="tablewrap"></div>
+
+      <p class="small muted">缺少必要欄位的資料列不會納入任何數字，請到上方「資料檢查」逐列處理。</p>
+    </section>
+
+    <section class="card" id="sec-pack">
+      <h2><span class="n">3</span>AI 交接包 <span class="pill ok">只有代號與比例</span></h2>
+      <p class="small muted">下面就是會被複製出去的<strong>全部內容</strong>。貼到公司核准的 AI 工具，請它寫給老闆的月結摘要與建議。</p>
+      <div class="controls">
+        <label>客戶規模資訊
+          <select id="sizeMode">
+            <option value="band">只給大 / 中 / 小級距（建議）</option>
+            <option value="none">完全不給</option>
+          </select>
+        </label>
+        <button class="btn primary" id="copy">複製交接包</button>
+        <button class="btn" id="download">下載 .txt</button>
+        <span id="copyMsg" class="small" role="status"></span>
+      </div>
+      <div id="selfcheck" class="selfcheck" role="status"></div>
+      <pre id="pack" class="pack" tabindex="0"></pre>
+    </section>
+
+    <section class="card" id="sec-restore">
+      <h2><span class="n">4</span>貼回 AI 的回覆，還原客戶名稱</h2>
+      <p class="small muted">貼回的內容一律當純文字處理，不會被執行。回覆裡出現對照表沒有的代號時，會標示出來而不是硬還原。還原後含真實名稱的內容只顯示在畫面上，網站刻意不提供「複製還原結果」，避免真名進入系統剪貼簿或雲端剪貼簿同步。</p>
+      <div id="replyWrap" class="replywrap"><textarea id="reply" rows="9" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="把 AI 的回覆整段貼在這裡"></textarea></div>
+      <div class="controls">
+        <button class="btn primary" id="doRestore">還原代號</button>
+        <span id="restoreMsg" class="small" role="status"></span>
+      </div>
+      <div id="restoreSummary" class="small"></div>
+      <div id="restored" class="restored" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+
+<footer class="wrap small muted">
+  <p>本站所有資料皆為隨機捏造的虛構測試資料，與任何真實公司、個人無關。網站本身不含任何 AI 呼叫、後端或金鑰。</p>
+</footer>
+
+<script src="src/csv.js"></script>
+<script src="src/clean.js"></script>
+<script src="src/calc.js"></script>
+<script src="src/pseudo.js"></script>
+<script src="src/guide.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>

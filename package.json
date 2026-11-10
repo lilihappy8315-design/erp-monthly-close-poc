@@ -1,0 +1,12 @@
+{
+  "name": "erp-monthly-close-handoff-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ERP 資料最小化與可逆假名化 x 月結 AI 交接包（純前端 POC，無任何相依套件）",
+  "scripts": {
+    "test": "node --test tests/calc.test.js tests/pseudo.test.js tests/fix.test.js tests/guide.test.js tests/dataspec.test.js",
+    "serve": "python -m http.server 8765 --bind 127.0.0.1",
+    "gen-data": "python tools/gen_data.py",
+    "gen-blind": "python tools/gen_data.py --seed 7 --out data/blind_test_a.csv && python tools/gen_data.py --seed 20260 --out data/blind_test_b.csv"
+  }
+}

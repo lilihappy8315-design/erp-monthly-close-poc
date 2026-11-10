@@ -1,0 +1,7 @@
+.playwright-mcp/
+node_modules/
+*.log
+# 本機驗證用，不進 repo（可由 tools/gen_data.py 重新產生）
+data/blind_test_*
+# 說明文件用的截圖，不進 repo
+docs/
