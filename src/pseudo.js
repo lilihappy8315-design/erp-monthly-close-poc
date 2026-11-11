@@ -85,15 +85,28 @@
     L.push("");
     L.push("【使用規則】");
     L.push("1. 資料中的客戶、訂單、品項、業務員都已改成代號（C- 開頭是客戶、O- 開頭是訂單、P- 開頭是品項、R- 開頭是業務員）。請只用這些代號稱呼，不要猜測或編造真實名稱。");
-    L.push("2. 所有數字都已由程式算好。請直接引用，不要重新計算，也不要推測沒有提供的金額、單價或成本。");
+    L.push("2. 所有數字都已由程式算好。請直接引用，不要自己加減乘除或重新計算；需要的數字沒有提供時，請寫「資料未提供」，不要推測（包含金額、單價、成本）。");
     L.push("3. 「pp」代表百分點。毛利率變化是前一期與本期毛利率的差。");
-    L.push("4. 措辭保持中性，描述現象與可能原因即可，不要指責個人（包含業務員）；原因不確定時請寫成「需要向業務確認」。");
+    L.push("4. 措辭保持中性，描述現象與可能原因即可，不要指責個人（包含業務員），也不要點名特定業務員代號要求其說明或負責；原因不確定時請寫成「需要向業務單位確認」。");
     L.push("5. 如果資料不足以下結論，請直接說明，不要硬寫。");
+    L.push("6. 請使用純文字輸出，不要使用 Markdown（不要用 **、#、表格的 | 符號）；條列請用「1.」或「-」開頭。");
     L.push("");
     L.push(DATA_START);
     L.push(`資料期間：${mons[0]} 至 ${mons[mons.length - 1]}；結帳基準日：${report.baseDate}`);
     L.push("各月整體毛利率：" + mons.map((m) => `${m} ${pct(report.monthly[m].margin)}`).join("｜"));
     L.push(`期間整體毛利率：${pct(report.totals.margin)}`);
+    // 整體變化由程式算好，避免 AI 自己加減而違反「不要重新計算」
+    const mg = mons.map((m) => report.monthly[m].margin);
+    const steps = [];
+    for (let i = 1; i < mons.length; i++) if (mg[i] != null && mg[i - 1] != null) steps.push(`${mons[i]} ${pp(mg[i] - mg[i - 1])}`);
+    if (steps.length) L.push("整體毛利率較前一期變化：" + steps.join("｜"));
+    const first = mg.findIndex((x) => x != null);
+    let last = -1;
+    mg.forEach((x, i) => { if (x != null) last = i; });
+    if (first >= 0 && last > first) L.push(`整體毛利率期間變化（${mons[first]} 至 ${mons[last]}）：${pp(mg[last] - mg[first])}`);
+    let down = 0;
+    for (let i = mons.length - 1; i >= 1; i--) { if (mg[i] != null && mg[i - 1] != null && mg[i] < mg[i - 1]) down++; else break; }
+    L.push(`整體毛利率最近連續下降 ${down} 期（資料共 ${mons.length} 期）`);
     L.push(`客戶（以統一編號合併後）共 ${report.entities.length} 家；其中 ${report.notes.merged} 家有重複建檔，已合併為同一代號。`);
     L.push(`資料品質：待處理 ${report.totals.rowsPending} 列（缺少必要欄位，未納入上述指標）；經人工修正 ${report.totals.rowsEdited} 列；確認不納入 ${report.totals.rowsExcluded} 列。`);
     L.push("");

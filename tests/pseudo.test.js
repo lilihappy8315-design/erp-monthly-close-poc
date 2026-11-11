@@ -103,3 +103,32 @@ test("自我檢查能抓到洩漏：塞入客戶名稱 / 小數價格時必須�
   const bad = pack.replace(pseudo.DATA_END, "單價 12.50 元\n" + pseudo.DATA_END);
   assert.equal(pseudo.selfCheck(bad, records).ok, false);
 });
+
+// ---- 交接包提示設計（B4）：整體變化由程式算好、規則要求純文字與不點名 ----
+for (const base of files) {
+  test(`${base}: 整體毛利率的逐期變化、期間變化、連續下降期數，與標準答案獨立算出的相符`, () => {
+    const truth = JSON.parse(fs.readFileSync(path.join(root, base + ".truth.json"), "utf8"));
+    const rev = {}, cost = {};
+    for (const e of Object.values(truth.entities)) for (const [m, v] of Object.entries(e.months)) { rev[m] = (rev[m] || 0) + v.revenue; cost[m] = (cost[m] || 0) + v.cost; }
+    const months = Object.keys(rev).sort();
+    const mg = months.map((m) => (rev[m] === 0 ? null : (rev[m] - cost[m]) / rev[m]));
+    const pp = (x) => (x >= 0 ? "+" : "-") + Math.abs(x * 100).toFixed(1) + "pp";
+    const { pack } = setup(base, "band");
+    const steps = months.slice(1).map((m, i) => `${m} ${pp(mg[i + 1] - mg[i])}`).join("｜");
+    assert.ok(pack.includes("整體毛利率較前一期變化：" + steps), "逐期變化不符：期望 " + steps);
+    assert.ok(pack.includes(`整體毛利率期間變化（${months[0]} 至 ${months[months.length - 1]}）：${pp(mg[mg.length - 1] - mg[0])}`));
+    let down = 0;
+    for (let i = months.length - 1; i >= 1; i--) { if (mg[i] < mg[i - 1]) down++; else break; }
+    assert.ok(pack.includes(`整體毛利率最近連續下降 ${down} 期（資料共 ${months.length} 期）`));
+  });
+}
+
+test("提示詞規則：要求純文字、數字不足寫「資料未提供」、不指名業務員代號", () => {
+  const { pack } = setup(files[0], "band");
+  const rules = pack.slice(pack.indexOf("【使用規則】"), pack.indexOf(pseudo.DATA_START));
+  assert.match(rules, /純文字/);
+  assert.match(rules, /Markdown/);
+  assert.match(rules, /資料未提供/);
+  assert.match(rules, /不要點名特定業務員代號/);
+  assert.match(rules, /不要自己加減乘除/);
+});
