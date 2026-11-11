@@ -159,3 +159,5 @@ html { scroll-padding-top: 150px; }
   .coach .msg { font-size: .82rem; line-height: 1.45; flex-basis: 100%; }
   html { scroll-padding-top: 130px; }
 }
+.sizemsg { margin: 0 0 10px; font-size: .88rem; color: var(--accent); }
+.sizemsg:empty { display: none; }

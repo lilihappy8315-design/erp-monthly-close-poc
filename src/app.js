@@ -507,6 +507,7 @@
 
   // ---------- AI 交接包 ----------
   function renderPack() {
+    $("sizeMsg").textContent = ""; // 換檔案、改基準日等重新產生時，清掉上一次「已更新」的提示
     const pack = buildPack(state.report, state.mapping, { sizeMode: $("sizeMode").value });
     state.pack = pack;
     $("pack").textContent = pack; // 畫面顯示與複製 / 下載使用同一個字串
@@ -567,7 +568,7 @@
   function resetAll() {
     state.records = null; state.report = null; state.mapping = null; state.pack = ""; state.log = [];
     state.g = freshG(); state.packOk = true; state.prevDone = [];
-    ["status", "kpis", "t-alerts", "t-margin", "t-overdue", "t-below", "issues", "fixlog", "pack", "selfcheck", "restored", "restoreSummary", "copyMsg", "restoreMsg"]
+    ["status", "kpis", "t-alerts", "t-margin", "t-overdue", "t-below", "issues", "fixlog", "pack", "selfcheck", "restored", "restoreSummary", "copyMsg", "restoreMsg", "sizeMsg"]
       .forEach((id) => $(id).replaceChildren());
     $("reply").value = ""; $("file").value = "";
     fixMsg(""); $("editedPill").hidden = true; $("issueBadge").textContent = "";
@@ -686,7 +687,15 @@
 
   $("baseDate").addEventListener("change", () => { fixMsg(""); recalc(); });
   $("dropPts").addEventListener("change", recalc);
-  $("sizeMode").addEventListener("change", () => state.report && state.report.months.length && renderPack());
+  $("sizeMode").addEventListener("change", () => {
+    if (!(state.report && state.report.months.length)) return;
+    renderPack();
+    // 規模資訊只出現在交接包比較下面的段落，改選項後要明確告訴使用者有沒有變、變在哪裡
+    const n = (state.pack.match(/大客戶|中客戶|小客戶/g) || []).length;
+    $("sizeMsg").textContent = $("sizeMode").value === "band"
+      ? `已更新為「只給大 / 中 / 小級距」：交接包 ${state.pack.length} 字，共 ${n} 處標示客戶規模（從「毛利異常客戶」那一段開始，每行結尾）。`
+      : `已更新為「完全不給」：交接包 ${state.pack.length} 字，不含任何客戶規模資訊。`;
+  });
   $("reset").addEventListener("click", resetAll);
 
   $("copy").addEventListener("click", async () => {

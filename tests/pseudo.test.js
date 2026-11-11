@@ -132,3 +132,42 @@ test("提示詞規則：要求純文字、數字不足寫「資料未提供」�
   assert.match(rules, /不要點名特定業務員代號/);
   assert.match(rules, /不要自己加減乘除/);
 });
+
+// ---- 客戶規模選項（band / none）：選項必須真的改變交接包，且只改規模資訊 ----
+for (const base of files) {
+  test(`${base}: 規模選項 band 與 none 的差別只在規模級距，且級距分布正確`, () => {
+    const { report, map } = setup(base, "band");
+    const band = pseudo.buildPack(report, map, { sizeMode: "band" });
+    const none = pseudo.buildPack(report, map, { sizeMode: "none" });
+    assert.notEqual(band, none, "兩種選項產生了相同的交接包");
+    assert.ok(band.length > none.length);
+
+    const tiers = band.match(/大客戶|中客戶|小客戶/g) || [];
+    const alerts = report.entities.filter((e) => e.marginAlert.length).length;
+    assert.equal(tiers.length, alerts + report.entities.length, "每個異常客戶與每個客戶列各一個級距");
+    assert.equal((none.match(/大客戶|中客戶|小客戶/g) || []).length, 0);
+    assert.ok(band.includes("客戶規模級距") && !none.includes("客戶規模級距"));
+
+    // 把級距文字拿掉之後，兩份交接包應完全相同（證明其餘內容不受選項影響）
+    const strip = (t) => t.replace(/；規模：[大中小]客戶/g, "").replace(/｜[大中小]客戶(?=\n|$)/g, "")
+      .replace(/；最後是客戶規模級距，依營收排名，前 20% 為大、其後 30% 為中、其餘為小/, "");
+    assert.equal(strip(band), none);
+
+    // 表格內大 / 中 / 小的家數：前 20% 為大、其後 30% 為中、其餘為小
+    const rows = band.split("\n").filter((l) => /^C-\d+：.*｜[大中小]客戶$/.test(l));
+    const cnt = (k) => rows.filter((l) => l.endsWith("｜" + k + "客戶")).length;
+    const ranked = report.entities.filter((e) => e.revenue > 0).length;
+    const nBig = Math.max(1, Math.ceil(ranked * 0.2)), nMid = Math.ceil(ranked * 0.3);
+    assert.equal(rows.length, report.entities.length);
+    assert.equal(cnt("大"), nBig);
+    assert.equal(cnt("中"), nMid);
+  });
+
+  test(`${base}: 兩種選項的交接包都通過自動檢查（無原始值）`, () => {
+    const { records, report, map } = setup(base, "band");
+    for (const mode of ["band", "none"]) {
+      const chk = pseudo.selfCheck(pseudo.buildPack(report, map, { sizeMode: mode }), records);
+      assert.equal(chk.ok, true, mode);
+    }
+  });
+}
